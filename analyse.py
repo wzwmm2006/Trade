@@ -17,8 +17,8 @@ def readCsv(symbol):
     return df
 
 '''***************************************************
-函数名:readCsv
-函数说明:读取对应交易对的CSV文件
+函数名:getChange
+函数说明:获取涨跌幅（日）
 输入: 
 None
 输出: pandas change_dict
