@@ -71,18 +71,34 @@ def WriteLineToCSV(csvFileName, data):
 ...
 ]
 ********************************************************************'''
-def GetAllOHLCVData():
+def GetAllOHLCVData(symbolList):  
+    end = cex_binance.milliseconds() - 60 * 1000 * 60 * 24;  # Now
+
     time_interval = '1d'   # 获取日线数据
-    symbol = cex_binance.markets;
+    #symbol = cex_binance.markets;
     #print(symbol)
     if cex_binance.has['fetchOHLCV']:
-        for symbol in cex_binance.markets:
-            time.sleep (cex_binance.rateLimit / 1000) # time.sleep wants seconds
-            data = cex_binance.fetch_ohlcv (symbol, time_interval)
+        #for symbol in cex_binance.markets:
+        for symbol in symbolList:
             print(symbol);
+            since = cex_binance.parse8601('2018-12-31T08:00:00Z');
+
+            time.sleep (cex_binance.rateLimit / 1000) # time.sleep wants seconds
+            all_data = [];
+            while since < end:
+                data = cex_binance.fetch_ohlcv(symbol, timeframe=time_interval,since=since, limit=500);
+                
+                if len(data):
+                    # 更新获取时间
+                    since = data[len(data) - 1][0] + 60 * 1000 * 60 * 24;
+                    print(since);
+                    all_data += data;
+                else:
+                    break
+
             # 存入csv
             if(symbol.find('USDT') > -1 or symbol.find('BUSD') > -1):
-                WriteLineToCSV(symbol, data);
+                WriteLineToCSV(symbol, all_data);
         
 
 '''*****************************************************************************
@@ -101,10 +117,12 @@ cex_binance = ccxt.binance({
     'enableRateLimit': True,
 })
 
+symbolList = ['BTCUSDT', 'ETHUSDT'];
+
 # 加载市场数据
 cex_binance.load_markets()
 
 # 获取所有数据并存储
-GetAllOHLCVData()
+GetAllOHLCVData(symbolList)
 
 #Finsh
