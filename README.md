@@ -28,16 +28,16 @@ fetchOHLCV (symbol, timeframe = '1m', since = None, limit = None, params = {})
 --核心逻辑：
 根据step1获取的BTCUSDT/ETHUSDT的日线数据，计算最近N天日线级别涨跌幅
 getChange()
-                            ||
+                            ---->
 根据最近N天日线级别涨跌幅，通过BTC/ETH换仓策略(待优化),计算当日的持仓币种/持仓币种数量/持仓价值U
 calHold()
-                            ||
+                           ---->
 计算每年涨幅/年华收益率/最大回撤/净值/等需要的数据（N份数据）
 backTest()
-                            ||
+                            ---->
 遍历N，获取最优策略(截至目前净值增长最高)
 getSumData()
-                            ||
+                            ---->
 绘制最优策略的数据
 
 3、import matplotlib.pyplot as plt
