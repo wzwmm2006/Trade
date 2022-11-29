@@ -1,7 +1,7 @@
 # Trade
 some trade samples
 
-1、import ccxt
+1、import ccxt \r
 --概述：
 通过ccxt库实现从cex获取交易数据。
 --核心逻辑：
