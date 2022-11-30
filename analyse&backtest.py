@@ -73,47 +73,59 @@ def calHold(change_dict):
 输入: init_U, listToken, N
 输出: pandas hold_result
 *******************************************************'''
-def backTest(init_U, listToken, csv):
+def backTest(init_U, listToken, csv, gasfee):
     market = {};
     for symbol in listToken:
         market[symbol] = readCsv(symbol);
+
 
     hold = pd.read_csv(csv);
     hold['持仓数量'] = 0;
     hold['持仓U'] = 0;
     
+
     # 首日
     hold.at[0,'持仓U'] = init_U;
     hold.at[0,'持仓净值'] = 1;
     if(hold['持仓'][0] == 'BTCUSDT'):
         # 购入BTC
-        hold.at[0,'持仓数量'] = init_U / market['BTCUSDT'].iloc[1]['开盘价格'];
+        hold.at[0,'持仓U'] *= (1 - gasfee);
+        hold.at[0,'持仓数量'] = hold.at[0,'持仓U'] / market['BTCUSDT'].iloc[0]['开盘价格'];
     elif(hold['持仓'][0] == 'ETHUSDT'):
         #购入ETH
-        hold.at[0,'持仓数量'] = init_U / market['ETHUSDT'].iloc[1]['开盘价格'];
-        
+        hold.at[0,'持仓U'] *= (1 - gasfee);
+        hold.at[0,'持仓数量'] = hold.at[0,'持仓U'] / market['ETHUSDT'].iloc[0]['开盘价格'];
+    print(hold);  
+
     for index in range(1,len(hold)):
-        # 与前一轮持仓相同，不交易
+        # 与前一轮持仓相同，不交易,只更新净值
         if(hold['持仓'][index] == hold['持仓'][index-1]): 
-            hold.at[index,'持仓U'] = hold['持仓U'][index-1];
             hold.at[index,'持仓数量'] = hold['持仓数量'][index-1];
-            hold.at[index,'持仓净值'] = hold['持仓U'][index]  / init_U;
-            continue;
+            if(hold['持仓'][index]  == 'BTCUSDT'):
+                hold.at[index,'持仓U'] = hold['持仓数量'][index] * market['BTCUSDT'].iloc[index]['开盘价格'];
+                hold.at[index,'持仓净值'] = hold['持仓U'][index]  / init_U;
+            elif(hold['持仓'][index]  == 'ETHUSDT'):
+                hold.at[index,'持仓U'] = hold['持仓数量'][index] * market['ETHUSDT'].iloc[index]['开盘价格'];
+                hold.at[index,'持仓净值'] = hold['持仓U'][index]  / init_U;
 
         # 需要换仓，则交易
-        if(hold['持仓'][index] == 'BTCUSDT'):
+        elif(hold['持仓'][index] == 'BTCUSDT' and hold['持仓'][index-1] == 'ETHUSDT'):
             # 以当日开盘价格卖出ETH
             hold.at[index,'持仓U'] = hold['持仓数量'][index-1] * market['ETHUSDT'].iloc[index]['开盘价格'];
+            hold.at[index,'持仓U'] *= (1 - gasfee);
             hold.at[index,'持仓净值'] = hold['持仓U'][index]  / init_U;
             # 以当日开盘价格购入BTC
+            hold.at[index,'持仓U'] *= (1 - gasfee);
             hold.at[index,'持仓数量'] = hold['持仓U'][index] / market['BTCUSDT'].iloc[index]['开盘价格'];
-        elif(hold['持仓'][index] == 'ETHUSDT'):
+        elif(hold['持仓'][index] == 'ETHUSDT' and hold['持仓'][index-1] == 'BTCUSDT'):
             #卖出BTC
             hold.at[index,'持仓U'] = hold['持仓数量'][index-1] * market['BTCUSDT'].iloc[index]['开盘价格'];
+            hold.at[index,'持仓U'] *= (1 - gasfee);
             hold.at[index,'持仓净值'] = hold['持仓U'][index]  / init_U;
             #购入ETH
+            hold.at[index,'持仓U'] *= (1 - gasfee);
             hold.at[index,'持仓数量'] = hold['持仓U'][index] / market['ETHUSDT'].iloc[index]['开盘价格'];
-
+    #print(hold)
     return hold;
 
 
@@ -203,6 +215,7 @@ listToken = ['BTCUSDT', 'ETHUSDT']
 hold_backtest = {};
 back_sum = {};
 max_N = {};
+gasfee = 0.0002;
 
 # 回测收益
 for N in range(1,21):
@@ -221,7 +234,7 @@ for N in range(1,21):
     # 回测
     init_U = 10000;   # 初始资金
     key = "N="+str(N);
-    hold_backtest[key] = backTest(init_U, listToken, csv);
+    hold_backtest[key] = backTest(init_U, listToken, csv, gasfee);
 
     # 存入数据到csv
     csv = '../database/持仓明细_回测收益_'+str(N)+'.csv';
@@ -249,7 +262,6 @@ drawPlot(hold_backtest[max_N['最优N']], back_sum[max_N['最优N']], max_N['最
 
 # Finish
 print('Finish');
-
 
 
 
