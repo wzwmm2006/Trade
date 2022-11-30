@@ -53,18 +53,17 @@ def calHold(change_dict):
         ETHChange = change_dict['ETHUSDT'].iloc[index]['最近N天涨跌幅']
         date = change_dict['BTCUSDT'].iloc[index]['UTC+8时间']
 
-        if BTCChange is None or ETHChange is None:
-            continue
+        if numpy.isnan(BTCChange) or numpy.isnan(ETHChange):
+            hold_result[index] = [date, 'BTCUSDT'];
 
         # =====判断操作：待细化
-        if BTCChange > ETHChange:
+        elif BTCChange >= ETHChange:
             #print('买入比特币')
-            hold_result[hold_index] = [date, 'BTCUSDT']
+            hold_result[index] = [date, 'BTCUSDT']
         # 并非两者都<0时，且以太坊涨得多
         elif BTCChange < ETHChange:
             #print('买入以太坊')
-            hold_result[hold_index] = [date, 'ETHUSDT']
-        hold_index += 1
+            hold_result[index] = [date, 'ETHUSDT']
 
     return hold_result
 
