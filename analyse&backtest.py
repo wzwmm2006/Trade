@@ -32,7 +32,7 @@ def getChange(listToken, N):
         #获取数据
         df = readCsv(symbol)
         #df 我们需要 时间，开盘价，收盘价 这三个参数
-        df['最近N天涨跌幅'] = df['收盘价格'].pct_change(N)
+        df['最近N天涨跌幅'] = df['开盘价格'].pct_change(N)
         # 获取所有1天涨跌幅
         change_dict[symbol] = df[['UTC+8时间', '最近N天涨跌幅']]
     #print(change_dict);
@@ -54,15 +54,24 @@ def calHold(change_dict):
         date = change_dict['BTCUSDT'].iloc[index]['UTC+8时间']
 
         if numpy.isnan(BTCChange) or numpy.isnan(ETHChange):
-            hold_result[index] = [date, 'BTCUSDT'];
+            hold_result[index] = [date, 'USDT'];
 
         # =====判断操作：待细化
-        elif BTCChange >= ETHChange:
-            #print('买入比特币')
+        elif(BTCChange <= 0 and ETHChange <= 0):
+            # 双跌则持有U
+            hold_result[index] = [date, 'USDT']
+        elif (BTCChange > 0 and ETHChange <= 0):
+            # 只有BTC涨，则持有BTC
+            hold_result[index] = [date, 'BTCUSDT']
+        elif (BTCChange <= 0 and ETHChange > 0):
+            # 只有ETH涨，则持有ETH
+            hold_result[index] = [date, 'ETHUSDT']
+        elif BTCChange > ETHChange:
+            # 双涨且BTC涨得多，则持有BTC
             hold_result[index] = [date, 'BTCUSDT']
         # 并非两者都<0时，且以太坊涨得多
         elif BTCChange < ETHChange:
-            #print('买入以太坊')
+            # 双涨且ETH涨得多，则持有ETH
             hold_result[index] = [date, 'ETHUSDT']
 
     return hold_result
@@ -87,15 +96,7 @@ def backTest(init_U, listToken, csv, gasfee):
     # 首日
     hold.at[0,'持仓U'] = init_U;
     hold.at[0,'持仓净值'] = 1;
-    if(hold['持仓'][0] == 'BTCUSDT'):
-        # 购入BTC
-        hold.at[0,'持仓U'] *= (1 - gasfee);
-        hold.at[0,'持仓数量'] = hold.at[0,'持仓U'] / market['BTCUSDT'].iloc[0]['开盘价格'];
-    elif(hold['持仓'][0] == 'ETHUSDT'):
-        #购入ETH
-        hold.at[0,'持仓U'] *= (1 - gasfee);
-        hold.at[0,'持仓数量'] = hold.at[0,'持仓U'] / market['ETHUSDT'].iloc[0]['开盘价格'];
-    print(hold);  
+    hold.at[0,'持仓数量'] = 0;
 
     for index in range(1,len(hold)):
         # 与前一轮持仓相同，不交易,只更新净值
@@ -107,18 +108,43 @@ def backTest(init_U, listToken, csv, gasfee):
             elif(hold['持仓'][index]  == 'ETHUSDT'):
                 hold.at[index,'持仓U'] = hold['持仓数量'][index] * market['ETHUSDT'].iloc[index]['开盘价格'];
                 hold.at[index,'持仓净值'] = hold['持仓U'][index]  / init_U;
+            else:
+                hold.at[index,'持仓U'] = hold['持仓U'][index-1];
+                hold.at[index,'持仓净值'] = hold['持仓净值'][index-1];
 
         # 需要换仓，则交易
+        elif(hold['持仓'][index] == 'USDT' and hold['持仓'][index-1] == 'BTCUSDT'):
+            # 本轮持仓U,上轮持仓BTC:直接卖出BTC
+            hold.at[index,'持仓U'] = hold['持仓数量'][index-1] * market['BTCUSDT'].iloc[index]['开盘价格'];
+            hold.at[index,'持仓U'] *= (1 - gasfee);
+            hold.at[index,'持仓净值'] = hold['持仓U'][index]  / init_U;
+            hold.at[index,'持仓数量'] = 0;
+        elif(hold['持仓'][index] == 'USDT' and hold['持仓'][index-1] == 'ETHUSDT'):
+            # 本轮持仓U,上轮持仓ETH:直接卖出ETH
+            hold.at[index,'持仓U'] = hold['持仓数量'][index-1] * market['ETHUSDT'].iloc[index]['开盘价格'];
+            hold.at[index,'持仓U'] *= (1 - gasfee);
+            hold.at[index,'持仓净值'] = hold['持仓U'][index]  / init_U;
+            hold.at[index,'持仓数量'] = 0;
+        elif(hold['持仓'][index] == 'BTCUSDT' and hold['持仓'][index-1] == 'USDT'):
+            # 本轮持仓BTC,上轮持仓U:直接买入BTC
+            hold.at[index,'持仓U'] = hold['持仓U'][index-1] * (1 - gasfee);
+            hold.at[index,'持仓数量'] = hold['持仓U'][index] / market['BTCUSDT'].iloc[index]['开盘价格'];
+            hold.at[index,'持仓净值'] = hold['持仓U'][index]  / init_U;
         elif(hold['持仓'][index] == 'BTCUSDT' and hold['持仓'][index-1] == 'ETHUSDT'):
-            # 以当日开盘价格卖出ETH
+            # 本轮持仓BTC,上轮持仓ETH:先卖出ETH再买入BTC
             hold.at[index,'持仓U'] = hold['持仓数量'][index-1] * market['ETHUSDT'].iloc[index]['开盘价格'];
             hold.at[index,'持仓U'] *= (1 - gasfee);
             hold.at[index,'持仓净值'] = hold['持仓U'][index]  / init_U;
             # 以当日开盘价格购入BTC
             hold.at[index,'持仓U'] *= (1 - gasfee);
             hold.at[index,'持仓数量'] = hold['持仓U'][index] / market['BTCUSDT'].iloc[index]['开盘价格'];
+        elif(hold['持仓'][index] == 'ETHUSDT' and hold['持仓'][index-1] == 'USDT'):
+            # 本轮持仓ETH上轮持仓U:直接买入ETH
+            hold.at[index,'持仓U'] = hold['持仓U'][index-1] * (1 - gasfee);
+            hold.at[index,'持仓数量'] = hold['持仓U'][index] / market['ETHUSDT'].iloc[index]['开盘价格'];
+            hold.at[index,'持仓净值'] = hold['持仓U'][index]  / init_U;
         elif(hold['持仓'][index] == 'ETHUSDT' and hold['持仓'][index-1] == 'BTCUSDT'):
-            #卖出BTC
+            # 本轮持仓ETH上轮持仓BTC:先卖出BTC再买入ETH
             hold.at[index,'持仓U'] = hold['持仓数量'][index-1] * market['BTCUSDT'].iloc[index]['开盘价格'];
             hold.at[index,'持仓U'] *= (1 - gasfee);
             hold.at[index,'持仓净值'] = hold['持仓U'][index]  / init_U;
