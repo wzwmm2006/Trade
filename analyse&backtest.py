@@ -4,6 +4,7 @@ import pandas as pd
 import json 
 import datetime
 import matplotlib.pyplot as plt
+import random
 
 
 '''***************************************************
@@ -159,10 +160,10 @@ def backTest(init_U, listToken, csv, gasfee):
 '''***************************************************
 函数名:drawPlot
 函数说明:根据回测收益绘制折线图
-输入: hold_backtest, backtest
+输入: hold_backtest, backtest, listToken
 输出: None
 *******************************************************'''
-def drawPlot(hold_backtest,back_sum, N):
+def drawPlot(hold_backtest,back_sum, N, listToken):
     plt.rcParams['font.sans-serif']=['SimHei'] #用来正常显示中文标签
     plt.rcParams['axes.unicode_minus'] = False #用来正常显示负号
 
@@ -174,11 +175,23 @@ def drawPlot(hold_backtest,back_sum, N):
     # 持仓收益变化
     x = hold_backtest.loc[:, 'UTC+8时间'];
     y = hold_backtest.loc[:, '持仓净值'];
-    #plt.subplot(2, 1, 1)
-    plt.plot(x, y)
+    plt.plot(x, y);
+    l = plt.plot(x, y, 'g--', label=N);
 
-    # 调整线条颜色：可以使用标准颜色名称、缩写颜色代码、0-1 灰度值、十六进制、RGB 元组、HTML 颜色名称
-    l = plt.plot(x,y, 'g--',label=N);
+    # btc/eth净值   
+    token = {};
+    color = ['blue', 'coral', 'gold', 'green'];
+    index = 0;
+    for symbol in listToken:
+        #获取数据
+        df = readCsv(symbol)
+        # 获取所有1天涨跌幅
+        #x_n = df.loc[:, 'UTC+8时间'];
+        y_n = df.loc[:, '净值'];
+        print(y_n);
+        plt.plot(x, y_n);
+        ln = plt.plot(x, y_n, color[index], label=symbol);
+        index += 1;
 
     #最大回撤注释
     #转换为日期索引
@@ -238,6 +251,7 @@ def getSumData(hold_backtest):
 print('Start');
 
 listToken = ['BTCUSDT', 'ETHUSDT']
+market = {};
 hold_backtest = {};
 back_sum = {};
 max_N = {};
@@ -284,7 +298,7 @@ for N in range(1,21):
 
 
 # 绘制最优收益的回测收益折线图
-drawPlot(hold_backtest[max_N['最优N']], back_sum[max_N['最优N']], max_N['最优N']);
+drawPlot(hold_backtest[max_N['最优N']], back_sum[max_N['最优N']], max_N['最优N'], listToken);
 
 # Finish
 print('Finish');
