@@ -4,7 +4,7 @@ print("PATH:", os.environ.get('PATH'))
 
 import ccxt
 import time
-import numpy
+import numpy as np
 import pandas as pd
 import json 
 
@@ -45,11 +45,17 @@ def WriteLineToCSV(csvFileName, data):
         file.close()
     
     # UTC时间戳转换为UTC+8可读时间
+    top = data[0][1];
+    worth = [0] * len(data); #净值
     for index in range(len(data)):
-        data[index][0] = timestampToUTC(data[index][0])
+        data[index][0] = timestampToUTC(data[index][0]);
+        worth[index] = data[index][1] / top;
+
+    np_data = np.array(data);
+    new_data = np.column_stack((np_data, worth))
 
     # 写数据到csv
-    df = pd.DataFrame(data,columns=['UTC+8时间','开盘价格','最高价格','最低价格', '收盘价格', '交易量'])
+    df = pd.DataFrame(new_data,columns=['UTC+8时间','开盘价格','最高价格','最低价格', '收盘价格', '交易量', '净值'])
     df.to_csv(csvFileName, encoding='utf_8_sig', index=None)
 
 '''*******************************************************************
