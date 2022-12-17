@@ -46,8 +46,8 @@ def trade():
     df['signal'] = 0;
     #a。找到做多信号，买入，之后等待平仓信号
     #买入: 超买-K线向上穿越上轨
-    condition1 = df['收盘价格'] > df['upper']; #当前k线收盘价大于上轨
-    condition2 = df['收盘价格'].shift(1) <= df['upper'].shift(1); #之前k线收盘价小于等于上轨
+    condition1 = df['开盘价格'] > df['upper']; #当前k线收盘价大于上轨
+    condition2 = df['开盘价格'].shift(1) <= df['upper'].shift(1); #之前k线收盘价小于等于上轨
     df.loc[condition1 & condition2, 'signal'] = 1; #将满足condition1 & condition2条件行的signal_long设置为1，signal long为新增列，代表坐多信号
 
     #平仓
@@ -57,13 +57,19 @@ def trade():
 
     # b。找到做空信号，卖出，之后等待平仓信号
     #卖出: 超跌-K线向下穿越下轨
-    condition1 = df['收盘价格'] < df['lower']; #当前k线收盘价小于下轨
-    condition2 = df['收盘价格'].shift(1) >= df['lower'].shift(1); #之前k线收盘价大等于下轨
+    condition1 = df['开盘价格'] < df['lower']; #当前k线收盘价小于下轨
+    condition2 = df['开盘价格'].shift(1) >= df['lower'].shift(1); #之前k线收盘价大等于下轨
     df.loc[condition1 & condition2, 'signal'] = -1; #将满足condition1 & condition2条件行的signal_short设置为-1，signal short为新增列，代表做空信号
 
     #平仓
     #condition1 = df['收盘价格'] > df['median'] #当前收盘价大于中轨
     #condition2 = df['收盘价格'].shift(1) <= df['median'].shift(1); #前一天收盘价小于等于中轨
+
+    condition_boll_down = df['收盘价格'].shift() > df['upper'].shift();
+    df.loc[(condition_boll_down), 'signal'] = 1;
+
+    condition_boll_down1 = df['收盘价格'].shift() < df['lower'].shift();
+    df.loc[(condition_boll_down1), 'signal'] = -1;
 
     df['持仓数量'] = 0;
     df['总值U'] = init_U;
@@ -76,11 +82,11 @@ def trade():
         if(df['signal'][index-1] == 1): # 做多ing
             df['总值U'][index] = df['持仓数量'][index-1] * (df['开盘价格'][index] / df['开盘价格'][index-1]);
             df['总值U'][index] *= (1 - gasfee); # 手续费
-            df['总值U'][index] -= 3 * df['开盘价格'][index] * rate_fee; # 资金费率，8h一次
+            df['总值U'][index] -= 0.5 * df['开盘价格'][index] * rate_fee; # 资金费率，8h一次
         elif(df['signal'][index-1] == -1): # 做空ing
             df['总值U'][index] = df['持仓数量'][index-1] * (df['开盘价格'][index-1] / df['开盘价格'][index]);
             df['总值U'][index] *= (1 - gasfee);
-            df['总值U'][index] -= 3* df['开盘价格'][index] * rate_fee;
+            df['总值U'][index] -= 0.5 * df['开盘价格'][index] * rate_fee;
         else:
             df['总值U'][index] = df['总值U'][index-1];
         df['持仓数量'][index] = 0;
