@@ -71,33 +71,17 @@ def trade():
     condition_boll_down1 = df['收盘价格'].shift() < df['lower'].shift();
     df.loc[(condition_boll_down1), 'signal'] = -1;
 
-    df['持仓数量'] = 0;
-    df['总值U'] = init_U;
-    
-    for index, item in df.iterrows():
-        if(index <= 0):
-            continue;
+    df['signal'].fillna(value=0, inplace=True);
 
-        # 先平仓
-        if(df['signal'][index-1] == 1): # 做多ing
-            df['总值U'][index] = df['持仓数量'][index-1] * (df['开盘价格'][index] / df['开盘价格'][index-1]);
-            df['总值U'][index] *= (1 - gasfee); # 手续费
-            df['总值U'][index] -= 0.5 * df['开盘价格'][index] * rate_fee; # 资金费率，8h一次
-        elif(df['signal'][index-1] == -1): # 做空ing
-            df['总值U'][index] = df['持仓数量'][index-1] * (df['开盘价格'][index-1] / df['开盘价格'][index]);
-            df['总值U'][index] *= (1 - gasfee);
-            df['总值U'][index] -= 0.5 * df['开盘价格'][index] * rate_fee;
-        else:
-            df['总值U'][index] = df['总值U'][index-1];
-        df['持仓数量'][index] = 0;
+    # 累加
+    df['合约当日收益'] = df['signal'] * (df['收盘价格'] / df['开盘价格'] - 1) - abs(df['signal']) * gasfee - abs(df['signal']) * rate_fee * 3;
+    df['总值U'] = df['合约当日收益'].cumsum();
 
-        # 再开仓
-        if(item['signal'] == 1 or item['signal'] == -1):
-            # 开仓
-            df['总值U'][index] *= (1 - gasfee);
-            df['持仓数量'][index] = df['总值U'][index] * rate * leverage;
+    # 累乘
+    df['合约当日收益'] = 1 + df['signal'] * (df['收盘价格'] / df['开盘价格'] - 1) - abs(df['signal']) * gasfee - abs(df['signal']) * rate_fee * 3;
+    df['总值U'] = df['合约当日收益'].cumprod();
+
         
-
 def drawPlot2():
     plt.rcParams['font.sans-serif']=['SimHei'] #用来正常显示中文标签
     plt.rcParams['axes.unicode_minus'] = False #用来正常显示负号
@@ -135,7 +119,7 @@ max_N = {};
 gasfee = 0.0002;
 init_U = 10000;
 leverage = 10; # 杠杆
-rate = 0.1; # 每次开仓资金比例
+rate = 0.1 # 每次开仓资金比例
 rate_fee = 0.0001; #资金费率
 
 
